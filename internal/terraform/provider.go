@@ -76,7 +76,7 @@ func (p *datahubProvider) Configure(ctx context.Context, req provider.ConfigureR
 
 	// If practitioner provided a configuration value for any of the
 	// attributes, it must be a known value.
-	
+
 	if config.BaseURL.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("BaseURL"),
@@ -170,7 +170,7 @@ func (p *datahubProvider) Configure(ctx context.Context, req provider.ConfigureR
 	ctx = tflog.MaskFieldValuesWithFieldKeys(ctx, "DATAHUB_CLIENT_SECRET")
 
 	tflog.Debug(ctx, "Creating Datahub client")
-	
+
 	// Create a new Datahub client using the configuration values
 	client := datahub.NewDatahubClient(base_url, client_id, client_secret)
 	// if err != nil {
@@ -201,6 +201,6 @@ func (p *datahubProvider) DataSources(_ context.Context) []func() datasource.Dat
 // Resources defines the resources implemented in the provider.
 func (p *datahubProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		// NewOrderResource,
+		NewJobResource,
 	}
 }

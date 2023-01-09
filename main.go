@@ -71,5 +71,6 @@ func main() {
         // specific Terraform CLI configuration for manual development testing
         // of this provider.
         Address: "hashicorp.com/aybi/aybi-datahub",
+        ProtocolVersion: 6,
     })
 }
