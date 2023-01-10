@@ -1,4 +1,4 @@
-module terraform-provider-aybi-datahub
+module terraform-provider-datahub
 
 go 1.18
 

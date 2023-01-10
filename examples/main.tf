@@ -14,24 +14,17 @@ provider "datahub" {
 }
 
 resource "datahub_job" "example" {
-  name  = "hallo"
+  name  = "hallo3"
   type  = "full"
   image = "aybcr.azurecr.io/datahub/test"
   
   environment = {
-    "TEST_1" = "VALUE 1",
+    "TEST_1" = "UPDATED1",
     "TEST_2" = "VALUE 3",
   }
   
   secrets = {
-    "SECRET_1" = "secret value 1",
+    "SECRET_1" = "secret sauce",
   }
-
-}
-
-resource "datahub_job" "simple" {
-  name  = "hallo"
-  type  = "full"
-  image = "aybcr.azurecr.io/datahub/test"
 
 }

@@ -130,6 +130,10 @@ func (r *jobResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 	}
 }
 
+type Environment map[string]string
+type Secrets map[string]string
+type Command []string
+
 // Create creates the resource and sets the initial Terraform state.
 // Create a new resource
 func (r *jobResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -142,20 +146,27 @@ func (r *jobResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
-	environment := map[string]string{}
-	for env_key, env_value := range job.Environment {
-		environment[env_key] = env_value
+	var environment Environment
+	diags = job.Environment.ElementsAs(ctx, &environment, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	} 
 
-	}
+	var secrets Secrets
+	diags = job.Secrets.ElementsAs(ctx, &secrets, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	} 
 
-	secrets := map[string]string{}
-	for secret_key, secret_value := range job.Secrets {
-		environment[secret_key] = secret_value
-	}
+	var command Command
+	diags = job.Command.ElementsAs(ctx, &command, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	} 
 
-	command := []string{}
-	command = append(command, job.Command...)
-	
 
 	jobRequest := datahub.CreateJobRequest{
 		Name:        job.Name.ValueString(),
@@ -188,47 +199,7 @@ func (r *jobResource) Create(ctx context.Context, req resource.CreateRequest, re
 	tflog.Debug(ctx, fmt.Sprintf("Job config: %v", job))
 	tflog.Debug(ctx, fmt.Sprintf("Create Job object: %v", jobRequest))
 
-	// tflog.Debug(ctx, fmt.Sprintf("Got environment variables %v", job.Environment.Elements()))
-
 	job.JobId = types.StringValue(jobResponse.JobID)
-
-	// // Generate API request body from plan
-	// var items []hashicups.JobItem
-	// for _, item := range plan.Items {
-	//     items = append(items, hashicups.JobItem{
-	//         Coffee: hashicups.Coffee{
-	//             ID: int(item.Coffee.ID.ValueInt64()),
-	//         },
-	//         Quantity: int(item.Quantity.ValueInt64()),
-	//     })
-	// }
-
-	// // Create new job
-	// job, err := r.client.CreateJob(items)
-	// if err != nil {
-	//     resp.Diagnostics.AddError(
-	//         "Error creating job",
-	//         "Could not create job, unexpected error: "+err.Error(),
-	//     )
-	//     return
-	// }
-
-	// // Map response body to schema and populate Computed attribute values
-	// plan.ID = types.StringValue(strconv.Itoa(job.ID))
-	// for jobItemIndex, jobItem := range job.Items {
-	//     plan.Items[jobItemIndex] = jobItemModel{
-	//         Coffee: jobItemCoffeeModel{
-	//             ID:          types.Int64Value(int64(jobItem.Coffee.ID)),
-	//             Name:        types.StringValue(jobItem.Coffee.Name),
-	//             Teaser:      types.StringValue(jobItem.Coffee.Teaser),
-	//             Description: types.StringValue(jobItem.Coffee.Description),
-	//             Price:       types.Float64Value(jobItem.Coffee.Price),
-	//             Image:       types.StringValue(jobItem.Coffee.Image),
-	//         },
-	//         Quantity: types.Int64Value(int64(jobItem.Quantity)),
-	//     }
-	// }
-	// plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, job)
@@ -249,30 +220,41 @@ func (r *jobResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	}
 
 	// 	// Get refreshed job value from HashiCups
-	// 	job, err := r.client.GetJob(state.ID.ValueString())
-	// 	if err != nil {
-	// 		resp.Diagnostics.AddError(
-	// 			"Error Reading HashiCups Job",
-	// 			"Could not read HashiCups job ID "+state.ID.ValueString()+": "+err.Error(),
-	// 		)
-	// 		return
-	// 	}
+	job, err := r.client.GetJob(ctx, state.JobId.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Reading Datahub Job",
+			"Could not read Datahub job ID "+state.JobId.ValueString()+": "+err.Error(),
+		)
+		return
+	}
 
-	// 	// Overwrite items with refreshed state
-	// 	state.Items = []jobItemModel{}
-	// 	for _, item := range job.Items {
-	// 		state.Items = append(state.Items, jobItemModel{
-	// 			Coffee: jobItemCoffeeModel{
-	// 				ID:          types.Int64Value(int64(item.Coffee.ID)),
-	// 				Name:        types.StringValue(item.Coffee.Name),
-	// 				Teaser:      types.StringValue(item.Coffee.Teaser),
-	// 				Description: types.StringValue(item.Coffee.Description),
-	// 				Price:       types.Float64Value(item.Coffee.Price),
-	// 				Image:       types.StringValue(item.Coffee.Image),
-	// 			},
-	// 			Quantity: types.Int64Value(int64(item.Quantity)),
-	// 		})
-	// 	}
+	state.Name = types.StringValue(job.Name)
+	state.Image = types.StringValue(job.Image)
+
+	if len(job.Environment) > 0 {
+		state.Environment, diags = types.MapValueFrom(ctx, types.StringType, job.Environment)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+	
+	if len(job.Secrets) > 0 {
+		state.Secrets, diags = types.MapValueFrom(ctx, types.StringType, job.Secrets)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+	
+	if len(job.Command) > 0 {
+		state.Command, diags = types.ListValueFrom(ctx, types.StringType, job.Command)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
 
 	// Set refreshed state
 	diags = resp.State.Set(ctx, &state)
@@ -285,67 +267,81 @@ func (r *jobResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *jobResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// Retrieve values from plan
-	// var plan jobResourceModel
-	// diags := req.Plan.Get(ctx, &plan)
-	// resp.Diagnostics.Append(diags...)
-	// if resp.Diagnostics.HasError() {
-	//     return
-	// }
+	var plan jobResourceModel
+	var state jobResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	// // Generate API request body from plan
-	// var hashicupsItems []hashicups.JobItem
-	// for _, item := range plan.Items {
-	//     hashicupsItems = append(hashicupsItems, hashicups.JobItem{
-	//         Coffee: hashicups.Coffee{
-	//             ID: int(item.Coffee.ID.ValueInt64()),
-	//         },
-	//         Quantity: int(item.Quantity.ValueInt64()),
-	//     })
-	// }
+	diags = req.State.Get(ctx,&state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	// // Update existing job
-	// _, err := r.client.UpdateJob(plan.ID.ValueString(), hashicupsItems)
-	// if err != nil {
-	//     resp.Diagnostics.AddError(
-	//         "Error Updating HashiCups Job",
-	//         "Could not update job, unexpected error: "+err.Error(),
-	//     )
-	//     return
-	// }
+	updateReq := datahub.UpdateJobRequest{}
+	if !plan.Name.Equal(state.Name) {
+		updateReq.Name = plan.Name.ValueString()
+	}
 
-	// // Fetch updated items from GetJob as UpdateJob items are not
-	// // populated.
-	// job, err := r.client.GetJob(plan.ID.ValueString())
-	// if err != nil {
-	//     resp.Diagnostics.AddError(
-	//         "Error Reading HashiCups Job",
-	//         "Could not read HashiCups job ID "+plan.ID.ValueString()+": "+err.Error(),
-	//     )
-	//     return
-	// }
+	if !plan.Type.Equal(state.Type) {
+		updateReq.Type = plan.Type.ValueString()
+	}
 
-	// // Update resource state with updated items and timestamp
-	// plan.Items = []jobItemModel{}
-	// for _, item := range job.Items {
-	//     plan.Items = append(plan.Items, jobItemModel{
-	//         Coffee: jobItemCoffeeModel{
-	//             ID:          types.Int64Value(int64(item.Coffee.ID)),
-	//             Name:        types.StringValue(item.Coffee.Name),
-	//             Teaser:      types.StringValue(item.Coffee.Teaser),
-	//             Description: types.StringValue(item.Coffee.Description),
-	//             Price:       types.Float64Value(item.Coffee.Price),
-	//             Image:       types.StringValue(item.Coffee.Image),
-	//         },
-	//         Quantity: types.Int64Value(int64(item.Quantity)),
-	//     })
-	// }
-	// plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+	if !plan.Image.Equal(state.Image) {
+		updateReq.Image = plan.Type.ValueString()
+	}	
 
-	// diags = resp.State.Set(ctx, plan)
-	// resp.Diagnostics.Append(diags...)
-	// if resp.Diagnostics.HasError() {
-	//     return
-	// }
+	if !plan.Environment.Equal(state.Environment){
+		var environment Environment
+		diags = plan.Environment.ElementsAs(ctx, &environment, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		} 
+
+		updateReq.Environment = environment
+
+	}
+
+	if !plan.Secrets.Equal(state.Secrets) {
+		var secrets Secrets
+		diags = plan.Secrets.ElementsAs(ctx, &secrets, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		} 
+
+		updateReq.Secrets = secrets
+	}
+	
+	if !plan.Command.Equal(state.Command) {
+		var command Command
+		diags = plan.Command.ElementsAs(ctx, &command, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		updateReq.Command = command
+	}
+	
+	_, err := r.client.UpdateJob(ctx, state.JobId.ValueString(), updateReq)
+	if err != nil{
+		resp.Diagnostics.AddError(
+				"Error Updating Datahub Job",
+				"unexpected error: "+err.Error(),
+			)
+			return
+	}
+
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+	    return
+	}
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
@@ -383,13 +379,13 @@ func (r *jobResource) ImportState(ctx context.Context, req resource.ImportStateR
 }
 
 type jobResourceModel struct {
-	JobId       types.String      `tfsdk:"job_id"`
-	Name        types.String      `tfsdk:"name"`
-	Type        types.String      `tfsdk:"type"`
-	Image       types.String      `tfsdk:"image"`
-	Environment map[string]string `tfsdk:"environment"`
-	Secrets     map[string]string `tfsdk:"secrets"`
-	Command     []string          `tfsdk:"command"`
+	JobId       types.String `tfsdk:"job_id"`
+	Name        types.String `tfsdk:"name"`
+	Type        types.String `tfsdk:"type"`
+	Image       types.String `tfsdk:"image"`
+	Environment types.Map    `tfsdk:"environment"`
+	Secrets     types.Map    `tfsdk:"secrets"`
+	Command     types.List   `tfsdk:"command"`
 }
 
 // jobItemModel maps job item data.
