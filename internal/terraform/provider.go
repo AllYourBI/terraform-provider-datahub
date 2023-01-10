@@ -2,7 +2,7 @@ package terraform
 
 import (
 	"context"
-	"terraform-provider-aybi-datahub/internal/datahub"
+	"terraform-provider-datahub/internal/datahub"
 
 	"os"
 
@@ -37,7 +37,7 @@ type datahubProvider struct{}
 
 // Metadata returns the provider type name.
 func (p *datahubProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "aybi_datahub"
+	resp.TypeName = "datahub"
 }
 
 // Schema defines the provider-level schema for configuration data.

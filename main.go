@@ -4,7 +4,7 @@
 // 	"context"
 // 	"encoding/json"
 // 	"fmt"
-// 	"terraform-provider-aybi-datahub/internal/datahub"
+// 	"terraform-provider-datahub/internal/datahub"
 // )
 
 // func main(){
@@ -54,23 +54,35 @@ package main
 
 import (
 	"context"
-	"terraform-provider-aybi-datahub/internal/terraform"
+	"flag"
+	"log"
+	"terraform-provider-datahub/internal/terraform"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 )
 
 // Provider documentation generation.
-//go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate --provider-name hashicups
+//go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate --provider-name datahub
 
 func main() {
-	
-    providerserver.Serve(context.Background(), terraform.New, providerserver.ServeOpts{
-        // NOTE: This is not a typical Terraform Registry provider address,
-        // such as registry.terraform.io/hashicorp/hashicups. This specific
-        // provider address is used in these tutorials in conjunction with a
-        // specific Terraform CLI configuration for manual development testing
-        // of this provider.
-        Address: "hashicorp.com/aybi/aybi-datahub",
-        ProtocolVersion: 6,
-    })
+
+	var debug bool
+
+	flag.BoolVar(&debug, "debug", false, "set to true to run the provider with support for debuggers like delve")
+	flag.Parse()
+
+	err := providerserver.Serve(context.Background(), terraform.New, providerserver.ServeOpts{
+		// NOTE: This is not a typical Terraform Registry provider address,
+		// such as registry.terraform.io/hashicorp/hashicups. This specific
+		// provider address is used in these tutorials in conjunction with a
+		// specific Terraform CLI configuration for manual development testing
+		// of this provider.
+		Address: "registry.terraform.io/aybi/datahub",
+		Debug:   debug,
+		// ProtocolVersion: 6,
+	})
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 }

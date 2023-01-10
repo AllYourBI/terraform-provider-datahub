@@ -3,13 +3,17 @@ package datahub
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 type DatahubConfig struct {
@@ -35,7 +39,13 @@ func NewDatahubClient(baseUrl, clientID, clientSecret string) *DatahubClient {
 		MaxIdleConns:       10,
 		IdleConnTimeout:    30 * time.Second,
 		DisableCompression: false,
+		
 	}
+	
+	if strings.Contains(baseUrl, "localhost") || strings.Contains(baseUrl, "127.0.0.1"){
+		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
 	client := &http.Client{Transport: tr}
 
 	return &DatahubClient{
@@ -99,13 +109,16 @@ func (dc *DatahubClient) authenticate(ctx context.Context) error {
 
 func (dc *DatahubClient) do(ctx context.Context, method string, endpoint string, jsonObject interface{}) (*http.Response, error) {
 	dc.authenticate(ctx)
+	tflog.Debug(ctx, "Executed autenticate")
 
 	URL := dc.config.BaseUrl + endpoint
+	tflog.Debug(ctx, "URL = " + URL)
 
 	var body *bytes.Reader
 	if jsonObject != nil {
 		bodyObj, err := json.Marshal(jsonObject)
 		if err != nil {
+			tflog.Debug(ctx, "Could not marshal JSON Body")
 			return nil, err
 		}
 
@@ -118,6 +131,7 @@ func (dc *DatahubClient) do(ctx context.Context, method string, endpoint string,
 
 	req, err := http.NewRequestWithContext(ctx, method, URL, body)
 	if err != nil {
+		tflog.Debug(ctx, "Failed DO request create" + err.Error())
 		return nil, err
 	}
 
@@ -129,14 +143,17 @@ func (dc *DatahubClient) do(ctx context.Context, method string, endpoint string,
 }
 
 func (dc *DatahubClient) CreateJob(ctx context.Context, job CreateJobRequest) (JobResponse, error) {
+	tflog.Debug(ctx, "Starting datahub CREATE JOB")
 	endpoint := "/api/v1/job"
 	method := http.MethodPost
 
 	resp, err := dc.do(ctx, method, endpoint, job)
 	if err != nil {
+		tflog.Debug(ctx, "Error response in CREATE JOB")
 		return JobResponse{}, err
 	}
 
+	
 	if resp.Body != nil {
 		defer resp.Body.Close()
 	}
@@ -146,10 +163,16 @@ func (dc *DatahubClient) CreateJob(ctx context.Context, job CreateJobRequest) (J
 		return JobResponse{}, err
 	}
 
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+        return JobResponse{}, errors.New("Datahub Engine API returned error response: " +string(body))
+	}
+
+
 	jobInfo := JobResponse{}
 	err = json.Unmarshal(body, &jobInfo)
 	if err != nil {
-		return JobResponse{}, err
+		tflog.Debug(ctx, "Cannot Unmarshal response body = " + string(body))
+		return JobResponse{}, errors.New("Cannot decode body into response:" + string(body))
 	}
 
 	return jobInfo, nil

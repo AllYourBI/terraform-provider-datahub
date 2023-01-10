@@ -2,18 +2,22 @@ package terraform
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+
 	// "fmt"
 
 	// "strconv"
-	"terraform-provider-aybi-datahub/internal/datahub"
+	"terraform-provider-datahub/internal/datahub"
 	// "time"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 
-	// "github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	// "github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	// "github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -47,21 +51,39 @@ func (r *jobResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 	resp.Schema = schema.Schema{
 		Description: "Manages an AYBI Datahub Engine job.",
 		Attributes: map[string]schema.Attribute{
-			// "job_id": schema.StringAttribute{
-			// 	Description: "Numeric identifier of the job.",
-			// 	Computed:    true,
-			// 	PlanModifiers: []planmodifier.String{
-			// 		stringplanmodifier.UseStateForUnknown(),
-			// 	},
-			// },
+			"job_id": schema.StringAttribute{
+				Description: "Numeric identifier of the job.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"name": schema.StringAttribute{
+				Description: "Name of the Job, needs to be unique for the current client",
+				Required:    true,
+			},
+			"type": schema.StringAttribute{
+				Description: "Job type: Full or Incremental",
+				Required:    true,
+			},
 			"image": schema.StringAttribute{
 				Description: "Docker image for the job",
 				Required:    true,
 			},
-			// "environment": schema.MapAttribute{
-			// 	ElementType: types.StringType,
-			// 	Optional: true,
-			// },
+			"environment": schema.MapAttribute{
+				ElementType: types.StringType,
+				Optional:    true,
+			},
+			"secrets": schema.MapAttribute{
+				ElementType: types.StringType,
+				Optional:    true,
+				Sensitive:   true,
+			},
+			"command": schema.ListAttribute{
+				ElementType: types.StringType,
+				Optional:    true,
+				Description: "Command to be executed in the container as a list of arguments",
+			},
 			// "items": schema.ListNestedAttribute{
 			//     Description: "List of items in the job.",
 			//     Required:    true,
@@ -120,7 +142,55 @@ func (r *jobResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
+	environment := map[string]string{}
+	for env_key, env_value := range job.Environment {
+		environment[env_key] = env_value
+
+	}
+
+	secrets := map[string]string{}
+	for secret_key, secret_value := range job.Secrets {
+		environment[secret_key] = secret_value
+	}
+
+	command := []string{}
+	command = append(command, job.Command...)
+	
+
+	jobRequest := datahub.CreateJobRequest{
+		Name:        job.Name.ValueString(),
+		Type:        "full",
+		Image:       job.Image.ValueString(),
+		Environment: environment,
+		Secrets:     secrets,
+		Command:     command,
+	}
+
+	jobJSON, err := json.Marshal(jobRequest)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error marshalling to JSON",
+			"Could not create job, unexpected error: "+err.Error(),
+		)
+		return
+	}
+	tflog.Debug(ctx, string(jobJSON))
+
+	jobResponse, err := r.client.CreateJob(ctx, jobRequest)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error creating job",
+			"Could not create job, unexpected error: "+err.Error(),
+		)
+		return
+	}
+
+	tflog.Debug(ctx, fmt.Sprintf("Job config: %v", job))
+	tflog.Debug(ctx, fmt.Sprintf("Create Job object: %v", jobRequest))
+
 	// tflog.Debug(ctx, fmt.Sprintf("Got environment variables %v", job.Environment.Elements()))
+
+	job.JobId = types.StringValue(jobResponse.JobID)
 
 	// // Generate API request body from plan
 	// var items []hashicups.JobItem
@@ -160,12 +230,12 @@ func (r *jobResource) Create(ctx context.Context, req resource.CreateRequest, re
 	// }
 	// plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 
-	// // Set state to fully populated data
-	// diags = resp.State.Set(ctx, plan)
-	// resp.Diagnostics.Append(diags...)
-	// if resp.Diagnostics.HasError() {
-	//     return
-	// }
+	// Set state to fully populated data
+	diags = resp.State.Set(ctx, job)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 // Read refreshes the Terraform state with the latest data.
@@ -313,23 +383,27 @@ func (r *jobResource) ImportState(ctx context.Context, req resource.ImportStateR
 }
 
 type jobResourceModel struct {
-	// JobId       types.String `tfsdk:"job_id"`
-	Image       types.String `tfsdk:"image"`
-	// Environment types.Map    `tfsdk:"environment"`
+	JobId       types.String      `tfsdk:"job_id"`
+	Name        types.String      `tfsdk:"name"`
+	Type        types.String      `tfsdk:"type"`
+	Image       types.String      `tfsdk:"image"`
+	Environment map[string]string `tfsdk:"environment"`
+	Secrets     map[string]string `tfsdk:"secrets"`
+	Command     []string          `tfsdk:"command"`
 }
 
 // jobItemModel maps job item data.
-type jobItemModel struct {
-	Coffee   jobItemCoffeeModel `tfsdk:"coffee"`
-	Quantity types.Int64        `tfsdk:"quantity"`
-}
+// type jobItemModel struct {
+// 	Coffee   jobItemCoffeeModel `tfsdk:"coffee"`
+// 	Quantity types.Int64        `tfsdk:"quantity"`
+// }
 
-// jobItemCoffeeModel maps coffee job item data.
-type jobItemCoffeeModel struct {
-	ID          types.Int64   `tfsdk:"id"`
-	Name        types.String  `tfsdk:"name"`
-	Teaser      types.String  `tfsdk:"teaser"`
-	Description types.String  `tfsdk:"description"`
-	Price       types.Float64 `tfsdk:"price"`
-	Image       types.String  `tfsdk:"image"`
-}
+// // jobItemCoffeeModel maps coffee job item data.
+// type jobItemCoffeeModel struct {
+// 	ID          types.Int64   `tfsdk:"id"`
+// 	Name        types.String  `tfsdk:"name"`
+// 	Teaser      types.String  `tfsdk:"teaser"`
+// 	Description types.String  `tfsdk:"description"`
+// 	Price       types.Float64 `tfsdk:"price"`
+// 	Image       types.String  `tfsdk:"image"`
+// }
