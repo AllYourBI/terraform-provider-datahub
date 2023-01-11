@@ -45,6 +45,7 @@ type UpdateJobRequest struct {
 	Secrets     map[string]string `json:"secrets,omitempty"`
 	Command     []string          `json:"command,omitempty"`
 	Deletes     *Deletes          `json:"deletes,omitempty"`
+	Oauth		*Oauth			  `json:"oauth,omitempty"`
 }
 
 type Deletes struct {

@@ -56,7 +56,7 @@ import (
 	"context"
 	"flag"
 	"log"
-	"terraform-provider-datahub/internal/terraform"
+	"terraform-provider-datahub/internal/provider"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 )
@@ -71,7 +71,7 @@ func main() {
 	flag.BoolVar(&debug, "debug", false, "set to true to run the provider with support for debuggers like delve")
 	flag.Parse()
 
-	err := providerserver.Serve(context.Background(), terraform.New, providerserver.ServeOpts{
+	err := providerserver.Serve(context.Background(), provider.New, providerserver.ServeOpts{
 		// NOTE: This is not a typical Terraform Registry provider address,
 		// such as registry.terraform.io/hashicorp/hashicups. This specific
 		// provider address is used in these tutorials in conjunction with a

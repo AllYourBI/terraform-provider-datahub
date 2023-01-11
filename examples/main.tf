@@ -27,4 +27,13 @@ resource "datahub_job" "example" {
     "SECRET_1" = "secret sauce",
   }
 
+  oauth= {
+    application = "exact_online"
+    flow = "authorization_code"
+    token_url = "https://x.nl/token"
+    authorization_url = "https://x.nl/auth"
+    scope = "tralal"
+    config_prefix = "EXACT_ONLINE_"
+  }
+
 }

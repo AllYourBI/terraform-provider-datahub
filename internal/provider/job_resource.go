@@ -1,4 +1,4 @@
-package terraform
+package provider
 
 import (
 	"context"
@@ -84,48 +84,36 @@ func (r *jobResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 				Optional:    true,
 				Description: "Command to be executed in the container as a list of arguments",
 			},
-			// "items": schema.ListNestedAttribute{
-			//     Description: "List of items in the job.",
-			//     Required:    true,
-			//     NestedObject: schema.NestedAttributeObject{
-			//         Attributes: map[string]schema.Attribute{
-			//             "quantity": schema.Int64Attribute{
-			//                 Description: "Count of this item in the job.",
-			//                 Required:    true,
-			//             },
-			//             "coffee": schema.SingleNestedAttribute{
-			//                 Description: "Coffee item in the job.",
-			//                 Required:    true,
-			//                 Attributes: map[string]schema.Attribute{
-			//                     "id": schema.Int64Attribute{
-			//                         Description: "Numeric identifier of the coffee.",
-			//                         Required:    true,
-			//                     },
-			//                     "name": schema.StringAttribute{
-			//                         Description: "Product name of the coffee.",
-			//                         Computed:    true,
-			//                     },
-			//                     "teaser": schema.StringAttribute{
-			//                         Description: "Fun tagline for the coffee.",
-			//                         Computed:    true,
-			//                     },
-			//                     "description": schema.StringAttribute{
-			//                         Description: "Product description of the coffee.",
-			//                         Computed:    true,
-			//                     },
-			//                     "price": schema.Float64Attribute{
-			//                         Description: "Suggested cost of the coffee.",
-			//                         Computed:    true,
-			//                     },
-			//                     "image": schema.StringAttribute{
-			//                         Description: "URI for an image of the coffee.",
-			//                         Computed:    true,
-			//                     },
-			//                 },
-			//             },
-			//         },
-			//     },
-			// },
+			"oauth": schema.SingleNestedAttribute{
+				Description: "The OAuth config for logging into external service",
+				Optional:    true,
+				Attributes: map[string]schema.Attribute{
+					"application": schema.StringAttribute{
+						Required:    true,
+						Description: "the application to connect to like 'exact_online'",
+					},
+					"flow": schema.StringAttribute{
+						Required:    true,
+						Description: "the oauth flow type like authorization_code",
+					},
+					"authorization_url": schema.StringAttribute{
+						Required:    true,
+						Description: "the full url to start the authorization",
+					},
+					"token_url": schema.StringAttribute{
+						Required:    true,
+						Description: "the full URL to fetch the token from",
+					},
+					"scope": schema.StringAttribute{
+						Optional:    true,
+						Description: "additional scopes to set for the token request",
+					},
+					"config_prefix": schema.StringAttribute{
+						Required:    true,
+						Description: "the prefix for the configuration variables returned from the token response like 'EXACT_ONLINE_",
+					},
+				},
+			},
 		},
 	}
 }
@@ -151,22 +139,21 @@ func (r *jobResource) Create(ctx context.Context, req resource.CreateRequest, re
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
-	} 
+	}
 
 	var secrets Secrets
 	diags = job.Secrets.ElementsAs(ctx, &secrets, false)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
-	} 
+	}
 
 	var command Command
 	diags = job.Command.ElementsAs(ctx, &command, false)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
-	} 
-
+	}
 
 	jobRequest := datahub.CreateJobRequest{
 		Name:        job.Name.ValueString(),
@@ -239,7 +226,7 @@ func (r *jobResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 			return
 		}
 	}
-	
+
 	if len(job.Secrets) > 0 {
 		state.Secrets, diags = types.MapValueFrom(ctx, types.StringType, job.Secrets)
 		resp.Diagnostics.Append(diags...)
@@ -247,12 +234,21 @@ func (r *jobResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 			return
 		}
 	}
-	
+
 	if len(job.Command) > 0 {
 		state.Command, diags = types.ListValueFrom(ctx, types.StringType, job.Command)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
+		}
+	}
+
+	if job.Oauth != nil {
+		state.OAuth = &jobResourceOauthModel{
+			Application:      types.StringValue(job.Oauth.Application),
+			Flow:             types.StringValue(job.Oauth.Flow),
+			AuthorizationURL: types.StringValue(job.Oauth.AuthorizationURL),
+			TokenURL:         types.StringValue(job.Oauth.TokenURL),
 		}
 	}
 
@@ -275,7 +271,7 @@ func (r *jobResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
-	diags = req.State.Get(ctx,&state)
+	diags = req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -292,15 +288,15 @@ func (r *jobResource) Update(ctx context.Context, req resource.UpdateRequest, re
 
 	if !plan.Image.Equal(state.Image) {
 		updateReq.Image = plan.Type.ValueString()
-	}	
+	}
 
-	if !plan.Environment.Equal(state.Environment){
+	if !plan.Environment.Equal(state.Environment) {
 		var environment Environment
 		diags = plan.Environment.ElementsAs(ctx, &environment, false)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
-		} 
+		}
 
 		updateReq.Environment = environment
 
@@ -312,11 +308,11 @@ func (r *jobResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
-		} 
+		}
 
 		updateReq.Secrets = secrets
 	}
-	
+
 	if !plan.Command.Equal(state.Command) {
 		var command Command
 		diags = plan.Command.ElementsAs(ctx, &command, false)
@@ -327,20 +323,36 @@ func (r *jobResource) Update(ctx context.Context, req resource.UpdateRequest, re
 
 		updateReq.Command = command
 	}
-	
+
+	if (state.OAuth == nil && plan.OAuth != nil) || (plan.OAuth != nil && (!plan.OAuth.Application.Equal(state.OAuth.Application) ||
+		!plan.OAuth.Flow.Equal(state.OAuth.Flow) ||
+		!plan.OAuth.TokenURL.Equal(state.OAuth.TokenURL) ||
+		!plan.OAuth.AuthorizationURL.Equal(state.OAuth.AuthorizationURL) ||
+		!plan.OAuth.Scope.Equal(state.OAuth.Scope) ||
+		!plan.OAuth.ConfigPrefix.Equal(state.OAuth.ConfigPrefix))) {
+
+		updateReq.Oauth = &datahub.Oauth{
+			Application:      plan.OAuth.Application.ValueString(),
+			Flow:             plan.OAuth.Flow.ValueString(),
+			TokenURL:         plan.OAuth.TokenURL.ValueString(),
+			AuthorizationURL: plan.OAuth.AuthorizationURL.ValueString(),
+			Scope:            plan.OAuth.Scope.ValueString(),
+		}
+	}
+
 	_, err := r.client.UpdateJob(ctx, state.JobId.ValueString(), updateReq)
-	if err != nil{
+	if err != nil {
 		resp.Diagnostics.AddError(
-				"Error Updating Datahub Job",
-				"unexpected error: "+err.Error(),
-			)
-			return
+			"Error Updating Datahub Job",
+			"unexpected error: "+err.Error(),
+		)
+		return
 	}
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
-	    return
+		return
 	}
 }
 
@@ -379,13 +391,23 @@ func (r *jobResource) ImportState(ctx context.Context, req resource.ImportStateR
 }
 
 type jobResourceModel struct {
-	JobId       types.String `tfsdk:"job_id"`
-	Name        types.String `tfsdk:"name"`
-	Type        types.String `tfsdk:"type"`
-	Image       types.String `tfsdk:"image"`
-	Environment types.Map    `tfsdk:"environment"`
-	Secrets     types.Map    `tfsdk:"secrets"`
-	Command     types.List   `tfsdk:"command"`
+	JobId       types.String           `tfsdk:"job_id"`
+	Name        types.String           `tfsdk:"name"`
+	Type        types.String           `tfsdk:"type"`
+	Image       types.String           `tfsdk:"image"`
+	Environment types.Map              `tfsdk:"environment"`
+	Secrets     types.Map              `tfsdk:"secrets"`
+	Command     types.List             `tfsdk:"command"`
+	OAuth       *jobResourceOauthModel `tfsdk:"oauth"`
+}
+
+type jobResourceOauthModel struct {
+	Application      types.String `tfsdk:"application"`
+	Flow             types.String `tfsdk:"flow"`
+	AuthorizationURL types.String `tfsdk:"authorization_url"`
+	TokenURL         types.String `tfsdk:"token_url"`
+	Scope            types.String `tfsdk:"scope"`
+	ConfigPrefix     types.String `tfsdk:"config_prefix"`
 }
 
 // jobItemModel maps job item data.
