@@ -37,3 +37,11 @@ resource "datahub_job" "example" {
   }
 
 }
+
+data "datahub_oauth_url" "test" {
+  job_id = datahub_job.example.job_id
+}
+
+output "URL" {
+  value = data.datahub_oauth_url.test.redirect
+}

@@ -5,11 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	// "fmt"
-
-	// "strconv"
 	"terraform-provider-datahub/internal/datahub"
-	// "time"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -409,19 +405,3 @@ type jobResourceOauthModel struct {
 	Scope            types.String `tfsdk:"scope"`
 	ConfigPrefix     types.String `tfsdk:"config_prefix"`
 }
-
-// jobItemModel maps job item data.
-// type jobItemModel struct {
-// 	Coffee   jobItemCoffeeModel `tfsdk:"coffee"`
-// 	Quantity types.Int64        `tfsdk:"quantity"`
-// }
-
-// // jobItemCoffeeModel maps coffee job item data.
-// type jobItemCoffeeModel struct {
-// 	ID          types.Int64   `tfsdk:"id"`
-// 	Name        types.String  `tfsdk:"name"`
-// 	Teaser      types.String  `tfsdk:"teaser"`
-// 	Description types.String  `tfsdk:"description"`
-// 	Price       types.Float64 `tfsdk:"price"`
-// 	Image       types.String  `tfsdk:"image"`
-// }

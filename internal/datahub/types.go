@@ -28,6 +28,11 @@ type JobResponse struct {
 	Oauth       *Oauth            `json:"oauth,omitempty"`
 }
 
+type JobOAuthRedirectResponse struct {
+	Redirect string `json:"redirect"`
+	Token    string `json:"token"`
+}
+
 type Oauth struct {
 	Application      string `json:"application,omitempty"`
 	Flow             string `json:"flow,omitempty"`
@@ -45,7 +50,7 @@ type UpdateJobRequest struct {
 	Secrets     map[string]string `json:"secrets,omitempty"`
 	Command     []string          `json:"command,omitempty"`
 	Deletes     *Deletes          `json:"deletes,omitempty"`
-	Oauth		*Oauth			  `json:"oauth,omitempty"`
+	Oauth       *Oauth            `json:"oauth,omitempty"`
 }
 
 type Deletes struct {

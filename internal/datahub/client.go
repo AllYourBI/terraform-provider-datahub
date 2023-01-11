@@ -205,6 +205,33 @@ func (dc *DatahubClient) GetJob(ctx context.Context, jobID string) (JobResponse,
 	return jobInfo, nil
 }
 
+func (dc *DatahubClient) GetJobOauthURL(ctx context.Context, jobID string) (JobOAuthRedirectResponse, error) {
+	endpoint := "/api/v1/job/" + jobID + "/oauth_redirect"
+	method := http.MethodGet
+
+	resp, err := dc.do(ctx, method, endpoint, nil)
+	if err != nil {
+		return JobOAuthRedirectResponse{}, err
+	}
+
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return JobOAuthRedirectResponse{}, err
+	}
+
+	jobInfo := JobOAuthRedirectResponse{}
+	err = json.Unmarshal(body, &jobInfo)
+	if err != nil {
+		return JobOAuthRedirectResponse{}, err
+	}
+
+	return jobInfo, nil
+}
+
 func (dc *DatahubClient) UpdateJob(ctx context.Context, jobID string, jobUpdate UpdateJobRequest) (JobResponse, error) {
 	endpoint := "/api/v1/job/" + jobID
 	method := http.MethodPatch
