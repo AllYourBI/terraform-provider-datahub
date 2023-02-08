@@ -215,8 +215,15 @@ func (r *jobResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	state.Name = types.StringValue(job.Name)
 	state.Image = types.StringValue(job.Image)
 
+
+
 	if len(job.Environment) > 0 {
-		state.Environment, diags = types.MapValueFrom(ctx, types.StringType, job.Environment)
+		// To support jobs that create environment and secrets themselves we don't consider them changes
+		// This should be enabled by a feature flag in the future so you can use the terraform config to delete keys from the environment and secrets
+		newEnv := dropUntracked(state.Environment, job.Environment)
+
+		state.Environment, diags = types.MapValueFrom(ctx, types.StringType, newEnv)
+
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
@@ -224,7 +231,11 @@ func (r *jobResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	}
 
 	if len(job.Secrets) > 0 {
-		state.Secrets, diags = types.MapValueFrom(ctx, types.StringType, job.Secrets)
+		// To support jobs that create environment and secrets themselves we don't consider them changes
+		// This should be enabled by a feature flag in the future so you can use the terraform config to delete keys from the environment and secrets
+		newSecrets := dropUntracked(state.Secrets, job.Secrets)
+
+		state.Secrets, diags = types.MapValueFrom(ctx, types.StringType, newSecrets)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
@@ -245,6 +256,7 @@ func (r *jobResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 			Flow:             types.StringValue(job.Oauth.Flow),
 			AuthorizationURL: types.StringValue(job.Oauth.AuthorizationURL),
 			TokenURL:         types.StringValue(job.Oauth.TokenURL),
+			ConfigPrefix:     types.StringValue(job.Oauth.ConfigPrefix),
 		}
 	}
 
@@ -333,6 +345,7 @@ func (r *jobResource) Update(ctx context.Context, req resource.UpdateRequest, re
 			TokenURL:         plan.OAuth.TokenURL.ValueString(),
 			AuthorizationURL: plan.OAuth.AuthorizationURL.ValueString(),
 			Scope:            plan.OAuth.Scope.ValueString(),
+			ConfigPrefix:     plan.OAuth.ConfigPrefix.ValueString(),
 		}
 	}
 
@@ -383,7 +396,7 @@ func (r *jobResource) Configure(_ context.Context, req resource.ConfigureRequest
 
 func (r *jobResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Retrieve import ID and save to id attribute
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	resource.ImportStatePassthroughID(ctx, path.Root("job_id"), req, resp)
 }
 
 type jobResourceModel struct {
@@ -404,4 +417,39 @@ type jobResourceOauthModel struct {
 	TokenURL         types.String `tfsdk:"token_url"`
 	Scope            types.String `tfsdk:"scope"`
 	ConfigPrefix     types.String `tfsdk:"config_prefix"`
+}
+
+
+func difference(a, b []string) []string {
+    mb := make(map[string]struct{}, len(b))
+    for _, x := range b {
+        mb[x] = struct{}{}
+    }
+    var diff []string
+    for _, x := range a {
+        if _, found := mb[x]; !found {
+            diff = append(diff, x)
+        }
+    }
+    return diff
+}
+
+
+func dropUntracked(state types.Map, new map[string]string) map[string]string {
+	originalKeys := []string{}
+	for key, _ := range state.Elements(){
+		originalKeys = append(originalKeys, key)
+	}
+
+	newKeys := []string{}
+	for key, _ := range new{
+		newKeys = append(newKeys, key)
+	}
+
+	toDel := difference(newKeys, originalKeys)
+	for _, keyToDel := range toDel{
+		delete(new, keyToDel)
+	}
+
+	return new
 }
