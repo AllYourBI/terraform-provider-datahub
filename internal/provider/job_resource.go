@@ -215,8 +215,6 @@ func (r *jobResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	state.Name = types.StringValue(job.Name)
 	state.Image = types.StringValue(job.Image)
 
-
-
 	if len(job.Environment) > 0 {
 		// To support jobs that create environment and secrets themselves we don't consider them changes
 		// This should be enabled by a feature flag in the future so you can use the terraform config to delete keys from the environment and secrets
@@ -419,35 +417,33 @@ type jobResourceOauthModel struct {
 	ConfigPrefix     types.String `tfsdk:"config_prefix"`
 }
 
-
 func difference(a, b []string) []string {
-    mb := make(map[string]struct{}, len(b))
-    for _, x := range b {
-        mb[x] = struct{}{}
-    }
-    var diff []string
-    for _, x := range a {
-        if _, found := mb[x]; !found {
-            diff = append(diff, x)
-        }
-    }
-    return diff
+	mb := make(map[string]struct{}, len(b))
+	for _, x := range b {
+		mb[x] = struct{}{}
+	}
+	var diff []string
+	for _, x := range a {
+		if _, found := mb[x]; !found {
+			diff = append(diff, x)
+		}
+	}
+	return diff
 }
-
 
 func dropUntracked(state types.Map, new map[string]string) map[string]string {
 	originalKeys := []string{}
-	for key, _ := range state.Elements(){
+	for key, _ := range state.Elements() {
 		originalKeys = append(originalKeys, key)
 	}
 
 	newKeys := []string{}
-	for key, _ := range new{
+	for key, _ := range new {
 		newKeys = append(newKeys, key)
 	}
 
 	toDel := difference(newKeys, originalKeys)
-	for _, keyToDel := range toDel{
+	for _, keyToDel := range toDel {
 		delete(new, keyToDel)
 	}
 

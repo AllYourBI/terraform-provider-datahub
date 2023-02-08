@@ -258,3 +258,76 @@ func (dc *DatahubClient) UpdateJob(ctx context.Context, jobID string, jobUpdate 
 
 	return jobInfo, nil
 }
+
+
+func (dc *DatahubClient) CreateRun(ctx context.Context, run CreateRunRequest) (RunResponse, error) {
+	tflog.Debug(ctx, "Starting datahub CREATE RUN")
+	endpoint := "/api/v1/run"
+	method := http.MethodPost
+
+	resp, err := dc.do(ctx, method, endpoint, run)
+	if err != nil {
+		tflog.Debug(ctx, "Error response in CREATE RUN")
+		return RunResponse{}, err
+	}
+
+	
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return RunResponse{}, err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+        return RunResponse{}, errors.New("Datahub Engine API returned error response: " +string(body))
+	}
+
+
+	runInfo := RunResponse{}
+	err = json.Unmarshal(body, &runInfo)
+	if err != nil {
+		tflog.Debug(ctx, "Cannot Unmarshal response body = " + string(body))
+		return RunResponse{}, errors.New("Cannot decode body into response:" + string(body))
+	}
+
+	return runInfo, nil
+}
+
+func (dc *DatahubClient) GetRunStatus(ctx context.Context, runID string) (RunStatusResponse, error) {
+	tflog.Debug(ctx, "Starting datahub CREATE RUN")
+	endpoint := "/api/v1/run/" + runID + "/status"
+	method := http.MethodGet
+
+	resp, err := dc.do(ctx, method, endpoint, nil)
+	if err != nil {
+		tflog.Debug(ctx, "Error response in CREATE RUN")
+		return RunStatusResponse{}, err
+	}
+
+	
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return RunStatusResponse{}, err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+        return RunStatusResponse{}, errors.New("Datahub Engine API returned error response: " +string(body))
+	}
+
+
+	runInfo := RunStatusResponse{}
+	err = json.Unmarshal(body, &runInfo)
+	if err != nil {
+		tflog.Debug(ctx, "Cannot Unmarshal response body = " + string(body))
+		return RunStatusResponse{}, errors.New("Cannot decode body into response:" + string(body))
+	}
+
+	return runInfo, nil
+}
