@@ -55,3 +55,18 @@ output "URL" {
 # --data-raw '{
 #     "job_id": "58a74c1a-2436-4547-8af4-0c050eef84d8"
 # }'
+
+
+resource "datahub_init_run" "init-test" {
+  name  = "initrun"
+  image = "aybcr.azurecr.io/aybi/dh-test-image:non-existing-tag"
+  
+  environment = {
+    "TEST_1" = "UPDATED1",
+    "TEST_2" = "VALUE 3",
+  }
+  
+  secrets = {
+    "SECRET_1" = "secret sauce",
+  }
+}

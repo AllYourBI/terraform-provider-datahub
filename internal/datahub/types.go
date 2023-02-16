@@ -57,3 +57,20 @@ type Deletes struct {
 	Environment []string `json:"environment,omitempty"`
 	Secrets     []string `json:"secrets,omitempty"`
 }
+
+type CreateRunRequest struct {
+	JobID string `json:"job_id"`
+}
+
+type RunResponse struct {
+	JobID string `json:"job_id"`
+	RunID string `json:"run_id"`
+}
+
+type RunStatusResponse struct {
+	Status        string `json:"status"`
+	StatusMessage string `json:"status_message"`
+	Runtime       string `json:"runtime"`
+	StartedAt     string `json:"started_at"`
+	StoppedAt     string `json:"stopped_at"`
+}
