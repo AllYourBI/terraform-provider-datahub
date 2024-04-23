@@ -5,9 +5,10 @@ import (
 	// "encoding/json"
 	"fmt"
 
-	"terraform-provider-datahub/internal/datahub"
+	"dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git/pkg/datahub"
 
 	// "github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -148,44 +149,44 @@ func (r *initRunResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 func (r *initRunResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
 	// Retrieve values from plan
-	var run runResourceModel
-	diags := req.Plan.Get(ctx, &run)
+	var runModel runResourceModel
+	diags := req.Plan.Get(ctx, &runModel)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var environment Environment
-	diags = run.Environment.ElementsAs(ctx, &environment, false)
+	var environment map[string]string
+	diags = runModel.Environment.ElementsAs(ctx, &environment, false)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var secrets Secrets
-	diags = run.Secrets.ElementsAs(ctx, &secrets, false)
+	var secrets map[string]string
+	diags = runModel.Secrets.ElementsAs(ctx, &secrets, false)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var command Command
-	diags = run.Command.ElementsAs(ctx, &command, false)
+	var command []string
+	diags = runModel.Command.ElementsAs(ctx, &command, false)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	jobRequest := datahub.CreateJobRequest{
-		Name:        run.Name.ValueString(),
-		Type:        "full",
-		Image:       run.Image.ValueString(),
-		Environment: environment,
-		Secrets:     secrets,
-		Command:     command,
+		Name:        runModel.Name.ValueString(),
+		JobType:        "full",
+		Image:       runModel.Image.ValueString(),
+		Environment: &environment,
+		Secrets:     &secrets,
+		Command:     &command,
 	}
 
-	jobResponse, err := r.client.CreateJob(ctx, jobRequest)
+	job, err := r.client.Job.Create(ctx, jobRequest)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating job",
@@ -197,13 +198,14 @@ func (r *initRunResource) Create(ctx context.Context, req resource.CreateRequest
 	// tflog.Debug(ctx, fmt.Sprintf("Job config: %v", job))
 	tflog.Debug(ctx, fmt.Sprintf("Create Job object: %v", jobRequest))
 
-	run.JobID = types.StringValue(jobResponse.JobID)
+	runModel.JobID = types.StringValue(job.ID.String())
 
-	runRequest := datahub.CreateRunRequest{
-		JobID: jobResponse.JobID,
+	runRequest := datahub.RunRequestOptions{
+		// JobID: jobResponse.JobID,
 	}
 
-	runResponse, err := r.client.CreateRun(ctx, runRequest)
+
+	runResponse, err := r.client.Run.Create(ctx, job.ID, nil, nil, nil)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating run",
@@ -212,14 +214,38 @@ func (r *initRunResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	tflog.Debug(ctx, fmt.Sprintf("InitRun config: %v", run))
+	run, err := runResponse.Run(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error creating run",
+			"Could not create run, unexpected error: "+err.Error(),
+		)
+		return
+	}
+
+	runStatus, err := run.WaitForCompletion(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error creating run",
+			"Could not create run, unexpected error: "+err.Error(),
+		)
+		return
+	}
+
+	tflog.Debug(ctx, fmt.Sprintf("InitRun config: %v", runModel))
 	tflog.Debug(ctx, fmt.Sprintf("Create InitRun object: %v", runRequest))
 
-	run.RunID = types.StringValue(runResponse.RunID)
-	run.Status = types.StringValue(InitRunStatusOK)
+	runModel.RunID = types.StringValue(run.ID.String())
+
+
+	if runStatus.Status.Status == "failed" || runStatus.Status.Status == "cancelled" || runStatus.Status.Status == "rejected"{
+		runModel.Status = types.StringValue(InitRunStatusFailed)
+	} else {
+		runModel.Status = types.StringValue(InitRunStatusOK)
+	}
 
 	// Set state to fully populated data
-	diags = resp.State.Set(ctx, run)
+	diags = resp.State.Set(ctx, runModel)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -236,8 +262,16 @@ func (r *initRunResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	// 	// Get refreshed job value from HashiCups
-	runStatus, err := r.client.GetRunStatus(ctx, state.RunID.ValueString())
+	runID, err := uuid.Parse(state.RunID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to parse run_id",
+			err.Error(),
+		)
+		return
+	}
+
+	runStatus, err := r.client.Run.Status(ctx, runID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Datahub InitRun Status",
@@ -246,8 +280,26 @@ func (r *initRunResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
+	jobID, err := uuid.Parse(state.JobID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to parse job_id",
+			err.Error(),
+		)
+		return
+	}
+
+
 	if slices.Contains([]string{"failed", "cancelled", "rejected"}, runStatus.Status) {
 		// state.Status = types.StringValue(InitRunStatusFailed)
+		err = r.client.Job.Delete(ctx, jobID)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error deleting job",
+				"Could not delete job, unexpected error: "+err.Error(),
+			)
+			return
+		}
 		resp.State.RemoveResource(ctx)
 		return
 	}
@@ -271,23 +323,32 @@ func (r *initRunResource) Update(ctx context.Context, req resource.UpdateRequest
 
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *initRunResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	// // Retrieve values from state
-	// 	var state runResourceModel
-	// 	diags := req.State.Get(ctx, &state)
-	// 	resp.Diagnostics.Append(diags...)
-	// 	if resp.Diagnostics.HasError() {
-	// 		return
-	// 	}
+	var state runResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	// 	// Delete existing job
-	// 	err := r.client.DeleteInitRun(state.ID.ValueString())
-	// 	if err != nil {
-	// 		resp.Diagnostics.AddError(
-	// 			"Error Deleting HashiCups InitRun",
-	// 			"Could not delete job, unexpected error: "+err.Error(),
-	// 		)
-	// 		return
-	// 	}
+	jobID, err := uuid.Parse(state.JobID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to parse job_id",
+			err.Error(),
+		)
+		return
+	}
+
+	err = r.client.Job.Delete(ctx, jobID)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error deleting job",
+			"Could not delete job, unexpected error: "+err.Error(),
+		)
+		return
+	}
+
+	resp.State.RemoveResource(ctx)
 }
 
 func (r *initRunResource) Configure(_ context.Context, req resource.ConfigureRequest, _ *resource.ConfigureResponse) {

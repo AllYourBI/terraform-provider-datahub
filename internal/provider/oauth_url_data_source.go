@@ -2,8 +2,9 @@ package provider
 
 import (
 	"context"
-	"terraform-provider-datahub/internal/datahub"
+	"dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git/pkg/datahub"
 
+	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -55,7 +56,16 @@ func (d *oauthDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		return
 	}
 
-	oauthResponse, err := d.client.GetJobOauthURL(ctx, config.JobID.ValueString())
+	jobID, err := uuid.Parse(config.JobID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to parse job_id",
+			err.Error(),
+		)
+		return
+	}
+
+	oauthResponse, err := d.client.Job.GetOAuthRedirect(ctx, jobID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Get OAuth redirect url for this job",

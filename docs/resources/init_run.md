@@ -31,5 +31,3 @@ Manages the execution of an initialisation script
 - `job_id` (String) Numeric identifier of the created job
 - `run_id` (String) Numeric identifier of the init run.
 - `status` (String) Status of the init run can be either OK or FAILED
-
-

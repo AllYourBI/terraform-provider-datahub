@@ -46,17 +46,6 @@ output "URL" {
   value = data.datahub_oauth_url.test.redirect
 }
 
-
-# eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiaHR0cHM6Ly9kZXYubG9jYWw6NTAwMCJdLCJjbGllbnRfaWQiOiIxNjE3OWNkNS0wNDgzLTQ4ZDItYmQ3Yy0xZDAwMzU3MTU3MjgiLCJleHAiOjE2NzM3NTE2ODMsImlhdCI6MTY3MzczMDA4MywiaXNzIjoiRGF0YWh1YiBFbmdpbmUiLCJzY29wZXMiOiJjbGllbnRfc2NvcGUiLCJzdWIiOiIxNjE3OWNkNS0wNDgzLTQ4ZDItYmQ3Yy0xZDAwMzU3MTU3MjgifQ.F5F6Wa1OLnaUQxPhS9iiRs1KJG9MFsLLIY4xq8geRTY
-
-# curl --location --request POST 'https://dev.local:5000/api/v1/run' \
-# --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiaHR0cHM6Ly9kZXYubG9jYWw6NTAwMCJdLCJjbGllbnRfaWQiOiIxNjE3OWNkNS0wNDgzLTQ4ZDItYmQ3Yy0xZDAwMzU3MTU3MjgiLCJleHAiOjE2NzM3NTE2ODMsImlhdCI6MTY3MzczMDA4MywiaXNzIjoiRGF0YWh1YiBFbmdpbmUiLCJzY29wZXMiOiJjbGllbnRfc2NvcGUiLCJzdWIiOiIxNjE3OWNkNS0wNDgzLTQ4ZDItYmQ3Yy0xZDAwMzU3MTU3MjgifQ.F5F6Wa1OLnaUQxPhS9iiRs1KJG9MFsLLIY4xq8geRTY' \
-# --header 'Content-Type: application/json' \
-# --data-raw '{
-#     "job_id": "58a74c1a-2436-4547-8af4-0c050eef84d8"
-# }'
-
-
 resource "datahub_init_run" "init-test" {
   name  = "initrun"
   image = "aybcr.azurecr.io/aybi/dh-test-image:non-existing-tag"

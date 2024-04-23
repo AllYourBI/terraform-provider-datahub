@@ -46,5 +46,3 @@ Required:
 Optional:
 
 - `scope` (String) additional scopes to set for the token request
-
-

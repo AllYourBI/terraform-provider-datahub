@@ -2,11 +2,11 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
-	"terraform-provider-datahub/internal/datahub"
+	"dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git/pkg/datahub"
 
+	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -130,47 +130,50 @@ func (r *jobResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
-	var environment Environment
+	var environment map[string]string
 	diags = job.Environment.ElementsAs(ctx, &environment, false)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var secrets Secrets
+	var secrets map[string]string
 	diags = job.Secrets.ElementsAs(ctx, &secrets, false)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var command Command
+	var command []string
 	diags = job.Command.ElementsAs(ctx, &command, false)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	var oauth *datahub.OAuthConfig
+	if job.OAuth != nil {
+		oauth = &datahub.OAuthConfig{
+			Application:      job.OAuth.Application.ValueString(),
+			Flow:             job.OAuth.Flow.ValueString(),
+			AuthorizationUrl: job.OAuth.AuthorizationURL.ValueString(),
+			TokenUrl:         job.OAuth.TokenURL.ValueString(),
+			Scope:            job.OAuth.Scope.ValueString(),
+			ConfigPrefix:     job.OAuth.ConfigPrefix.ValueString(),
+		}
+	}
+
 	jobRequest := datahub.CreateJobRequest{
 		Name:        job.Name.ValueString(),
-		Type:        "full",
+		JobType:     "full",
 		Image:       job.Image.ValueString(),
-		Environment: environment,
-		Secrets:     secrets,
-		Command:     command,
+		Environment: &environment,
+		Secrets:     &secrets,
+		Command:     &command,
+		OAuth:       oauth,
 	}
 
-	jobJSON, err := json.Marshal(jobRequest)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error marshalling to JSON",
-			"Could not create job, unexpected error: "+err.Error(),
-		)
-		return
-	}
-	tflog.Debug(ctx, string(jobJSON))
-
-	jobResponse, err := r.client.CreateJob(ctx, jobRequest)
+	jobResponse, err := r.client.Job.Create(ctx, jobRequest)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating job",
@@ -182,7 +185,7 @@ func (r *jobResource) Create(ctx context.Context, req resource.CreateRequest, re
 	tflog.Debug(ctx, fmt.Sprintf("Job config: %v", job))
 	tflog.Debug(ctx, fmt.Sprintf("Create Job object: %v", jobRequest))
 
-	job.JobId = types.StringValue(jobResponse.JobID)
+	job.JobId = types.StringValue(jobResponse.ID.String())
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, job)
@@ -202,8 +205,16 @@ func (r *jobResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		return
 	}
 
-	// 	// Get refreshed job value from HashiCups
-	job, err := r.client.GetJob(ctx, state.JobId.ValueString())
+	jobID, err := uuid.Parse(state.JobId.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Reading Datahub Job",
+			"Could not parse job ID "+state.JobId.ValueString()+": "+err.Error(),
+		)
+		return
+	}
+
+	job, err := r.client.Job.Get(ctx, jobID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Datahub Job",
@@ -248,13 +259,13 @@ func (r *jobResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		}
 	}
 
-	if job.Oauth != nil {
+	if job.OAuth != nil && job.OAuth.Application != "" && job.OAuth.Flow != "" && job.OAuth.TokenUrl != "" && job.OAuth.AuthorizationUrl != "" && job.OAuth.ConfigPrefix != ""{
 		state.OAuth = &jobResourceOauthModel{
-			Application:      types.StringValue(job.Oauth.Application),
-			Flow:             types.StringValue(job.Oauth.Flow),
-			AuthorizationURL: types.StringValue(job.Oauth.AuthorizationURL),
-			TokenURL:         types.StringValue(job.Oauth.TokenURL),
-			ConfigPrefix:     types.StringValue(job.Oauth.ConfigPrefix),
+			Application:      types.StringValue(job.OAuth.Application),
+			Flow:             types.StringValue(job.OAuth.Flow),
+			AuthorizationURL: types.StringValue(job.OAuth.AuthorizationUrl),
+			TokenURL:         types.StringValue(job.OAuth.TokenUrl),
+			ConfigPrefix:     types.StringValue(job.OAuth.ConfigPrefix),
 		}
 	}
 
@@ -283,51 +294,54 @@ func (r *jobResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
-	updateReq := datahub.UpdateJobRequest{}
+	updateReq := datahub.UpdateOptions{}
 	if !plan.Name.Equal(state.Name) {
-		updateReq.Name = plan.Name.ValueString()
+		name := plan.Name.ValueString()
+		updateReq.Name = &name
 	}
 
 	if !plan.Type.Equal(state.Type) {
-		updateReq.Type = plan.Type.ValueString()
+		typeVal := plan.Type.ValueString()
+		updateReq.JobType = &typeVal
 	}
 
 	if !plan.Image.Equal(state.Image) {
-		updateReq.Image = plan.Type.ValueString()
+		image := plan.Image.ValueString()
+		updateReq.Image = &image
 	}
 
 	if !plan.Environment.Equal(state.Environment) {
-		var environment Environment
+		var environment map[string]string
 		diags = plan.Environment.ElementsAs(ctx, &environment, false)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
 
-		updateReq.Environment = environment
+		updateReq.Environment = &environment
 
 	}
 
 	if !plan.Secrets.Equal(state.Secrets) {
-		var secrets Secrets
+		var secrets map[string]string
 		diags = plan.Secrets.ElementsAs(ctx, &secrets, false)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
 
-		updateReq.Secrets = secrets
+		updateReq.Secrets = &secrets
 	}
 
 	if !plan.Command.Equal(state.Command) {
-		var command Command
+		var command []string
 		diags = plan.Command.ElementsAs(ctx, &command, false)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
 
-		updateReq.Command = command
+		updateReq.Command = &command
 	}
 
 	if (state.OAuth == nil && plan.OAuth != nil) || (plan.OAuth != nil && (!plan.OAuth.Application.Equal(state.OAuth.Application) ||
@@ -337,17 +351,26 @@ func (r *jobResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		!plan.OAuth.Scope.Equal(state.OAuth.Scope) ||
 		!plan.OAuth.ConfigPrefix.Equal(state.OAuth.ConfigPrefix))) {
 
-		updateReq.Oauth = &datahub.Oauth{
+		updateReq.OAuth = &datahub.OAuthConfig{
 			Application:      plan.OAuth.Application.ValueString(),
 			Flow:             plan.OAuth.Flow.ValueString(),
-			TokenURL:         plan.OAuth.TokenURL.ValueString(),
-			AuthorizationURL: plan.OAuth.AuthorizationURL.ValueString(),
+			TokenUrl:         plan.OAuth.TokenURL.ValueString(),
+			AuthorizationUrl: plan.OAuth.AuthorizationURL.ValueString(),
 			Scope:            plan.OAuth.Scope.ValueString(),
 			ConfigPrefix:     plan.OAuth.ConfigPrefix.ValueString(),
 		}
 	}
 
-	_, err := r.client.UpdateJob(ctx, state.JobId.ValueString(), updateReq)
+	jobID, err := uuid.Parse(state.JobId.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Updating Datahub Job",
+			"Could not parse job ID "+state.JobId.ValueString()+": "+err.Error(),
+		)
+		return
+	}
+
+	_, err = r.client.Job.Update(ctx, jobID, updateReq)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Updating Datahub Job",
@@ -365,23 +388,32 @@ func (r *jobResource) Update(ctx context.Context, req resource.UpdateRequest, re
 
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *jobResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	// // Retrieve values from state
-	// 	var state jobResourceModel
-	// 	diags := req.State.Get(ctx, &state)
-	// 	resp.Diagnostics.Append(diags...)
-	// 	if resp.Diagnostics.HasError() {
-	// 		return
-	// 	}
+	// Retrieve values from state
+	var state jobResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	// 	// Delete existing job
-	// 	err := r.client.DeleteJob(state.ID.ValueString())
-	// 	if err != nil {
-	// 		resp.Diagnostics.AddError(
-	// 			"Error Deleting HashiCups Job",
-	// 			"Could not delete job, unexpected error: "+err.Error(),
-	// 		)
-	// 		return
-	// 	}
+	jobID, err := uuid.Parse(state.JobId.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Deleting Datahub Job",
+			"Could not parse job ID "+state.JobId.ValueString()+": "+err.Error(),
+		)
+		return
+	}
+
+	// Delete existing job
+	err = r.client.Job.Delete(ctx, jobID)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Deleting Datahub Job",
+			"Could not delete job, unexpected error: "+err.Error(),
+		)
+		return
+	}
 }
 
 func (r *jobResource) Configure(_ context.Context, req resource.ConfigureRequest, _ *resource.ConfigureResponse) {
