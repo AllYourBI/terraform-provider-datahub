@@ -21,6 +21,9 @@ jobs:
         with:
           # Allow goreleaser to access older tag information.
           fetch-depth: 0
+      - name: Setup access for private go modules
+        run: |
+          git config --global url."https://anythinggoeshere:${{ secrets.AZURE_DEVOPS_PAT_TOKEN }}@dev.azure.com".insteadOf "https://dev.azure.com"    
       - uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
           go-version-file: 'go.mod'
@@ -39,3 +42,5 @@ jobs:
           # GitHub sets the GITHUB_TOKEN secret automatically.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+          GOPRIVATE: dev.azure.com
+

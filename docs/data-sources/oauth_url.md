@@ -22,5 +22,3 @@ Fetches an OAuth URL for starting the OAuth flow
 ### Read-Only
 
 - `redirect` (String)
-
-

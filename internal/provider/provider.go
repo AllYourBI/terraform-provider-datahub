@@ -2,9 +2,11 @@ package provider
 
 import (
 	"context"
-	"terraform-provider-datahub/internal/datahub"
+	"crypto/tls"
 
 	"os"
+
+	"dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git/pkg/datahub"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -172,7 +174,27 @@ func (p *datahubProvider) Configure(ctx context.Context, req provider.ConfigureR
 	tflog.Debug(ctx, "Creating Datahub client")
 
 	// Create a new Datahub client using the configuration values
-	client := datahub.NewDatahubClient(base_url, client_id, client_secret)
+	client, err := datahub.FromCredentials(client_id, client_secret)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Create Datahub API Client",
+			"An unexpected error occurred when creating the Datahub API client. "+
+				"If the error is not clear, please contact the provider developers.\n\n"+
+				"Datahub Client Error: "+err.Error(),
+		)
+		return
+	}
+	client, err = client.WithBaseURL(base_url)
+	client = client.WithTLSConfig(&tls.Config{InsecureSkipVerify: true})
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Create Datahub API Client",
+			"An unexpected error occurred when creating the Datahub API client. "+
+				"If the error is not clear, please contact the provider developers.\n\n"+
+				"Datahub Client Error: "+err.Error(),
+		)
+		return
+	}
 	// if err != nil {
 	// 	resp.Diagnostics.AddError(
 	// 		"Unable to Create Datahub API Client",
