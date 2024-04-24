@@ -2,6 +2,8 @@ cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMT
 cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20240423134322-da9e445f11a3 h1:TXqYUAy5EVCm4Komn39KfZM2EV5PLpbXelaFVErlwaA=
 dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20240423134322-da9e445f11a3/go.mod h1:QGoH6BnyV6OrZ7+QdK1Ue7Ixcjr7CQZ0/8V4zV/5Ddo=
+dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20240424062006-4bc7cd149b1c h1:E9GgnZFwmJeq3uxBZR8/8POvwcOo6OjWOwb/9A7zVGk=
+dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20240424062006-4bc7cd149b1c/go.mod h1:QGoH6BnyV6OrZ7+QdK1Ue7Ixcjr7CQZ0/8V4zV/5Ddo=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/toml v1.2.1 h1:9F2/+DoOYIOksmaJFPw1tGFy1eDnIJXg+UHjuD8lTak=
 github.com/BurntSushi/toml v1.2.1/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbicEuybxQ=

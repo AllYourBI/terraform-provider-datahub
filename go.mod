@@ -5,7 +5,7 @@ go 1.22.0
 toolchain go1.22.2
 
 require (
-	dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20240423134322-da9e445f11a3
+	dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20240424062006-4bc7cd149b1c
 	github.com/google/uuid v1.4.0
 	github.com/hashicorp/terraform-plugin-framework v1.0.1
 	github.com/hashicorp/terraform-plugin-log v0.7.0
