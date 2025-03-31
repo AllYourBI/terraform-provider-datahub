@@ -225,5 +225,6 @@ func (p *datahubProvider) Resources(_ context.Context) []func() resource.Resourc
 	return []func() resource.Resource{
 		NewJobResource,
 		NewInitRunResource,
+		NewClientResource,
 	}
 }
