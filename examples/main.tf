@@ -59,3 +59,13 @@ resource "datahub_init_run" "init-test" {
     "SECRET_1" = "secret sauce",
   }
 }
+
+resource "datahub_client" "client-test" {
+  customer_code = "ayby"
+  customer_name = "test-client1"
+}
+
+output "client_secret" {
+  value = datahub_client.client-test.client_secret
+  sensitive = true
+}
