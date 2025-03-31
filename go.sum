@@ -1,15 +1,7 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20250330114444-b301613e305a h1:ImQE8MwjvAgzgyQAzzQJfiXIcpXsyroxCig8BD2zOXY=
-dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20250330114444-b301613e305a/go.mod h1:94R6WnAjaMJLh6R9wifct2uMX2hy//uX2kY8/DG3p6Q=
-dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20250330122012-9c11aee815af h1:IRh/WNMR/zBcuEBKdA33y/3CNDAMxNyz1wyZW3fFw1w=
-dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20250330122012-9c11aee815af/go.mod h1:94R6WnAjaMJLh6R9wifct2uMX2hy//uX2kY8/DG3p6Q=
-dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20250331062352-c871dbac5171 h1:HmatVau8v0tc3mU/zjRx0eN0nsc2vEXdvvlsS4uDjCc=
-dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20250331062352-c871dbac5171/go.mod h1:94R6WnAjaMJLh6R9wifct2uMX2hy//uX2kY8/DG3p6Q=
-dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20250331064116-65d22b8fe6e1 h1:qgckro1WnFWvYcYeoEvfCVMsja1mvjg0GtK5LsBZLpo=
-dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20250331064116-65d22b8fe6e1/go.mod h1:94R6WnAjaMJLh6R9wifct2uMX2hy//uX2kY8/DG3p6Q=
-dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20250331064526-8d93967a1033 h1:lETUy0ZlZQXJMDwiN7jol6Y6BY22zZKLdPEKzuP55wk=
-dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20250331064526-8d93967a1033/go.mod h1:94R6WnAjaMJLh6R9wifct2uMX2hy//uX2kY8/DG3p6Q=
+dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20250331083720-deccb0207c67 h1:2rNhf05fpghuJwl0BYBnT5x9+Uq7QilrvH690XoLSjs=
+dev.azure.com/AllYourBI/Datahub/_git/go-datahub-sdk.git v0.0.0-20250331083720-deccb0207c67/go.mod h1:94R6WnAjaMJLh6R9wifct2uMX2hy//uX2kY8/DG3p6Q=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/apparentlymart/go-textseg v1.0.0/go.mod h1:z96Txxhf3xSFMPmb5X/1W05FF/Nj9VFpLOpjS5yuumk=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
