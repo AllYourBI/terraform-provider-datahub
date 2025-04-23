@@ -226,5 +226,6 @@ func (p *datahubProvider) Resources(_ context.Context) []func() resource.Resourc
 		NewJobResource,
 		NewInitRunResource,
 		NewClientResource,
+		NewScheduleResource, // Add the new schedule resource
 	}
 }

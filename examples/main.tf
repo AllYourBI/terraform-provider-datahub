@@ -46,19 +46,19 @@ output "URL" {
   value = data.datahub_oauth_url.test.redirect
 }
 
-resource "datahub_init_run" "init-test" {
-  name  = "initrun"
-  image = "aybcr.azurecr.io/aybi/dh-test-image:non-existing-tag"
+# resource "datahub_init_run" "init-test" {
+#   name  = "initrun"
+#   image = "aybcr.azurecr.io/aybi/dh-test-image:non-existing-tag"
   
-  environment = {
-    "TEST_1" = "UPDATED1",
-    "TEST_2" = "VALUE 3",
-  }
+#   environment = {
+#     "TEST_1" = "UPDATED1",
+#     "TEST_2" = "VALUE 3",
+#   }
   
-  secrets = {
-    "SECRET_1" = "secret sauce",
-  }
-}
+#   secrets = {
+#     "SECRET_1" = "secret sauce",
+#   }
+# }
 
 resource "datahub_client" "client-test" {
   customer_code = "ayby"
@@ -68,4 +68,19 @@ resource "datahub_client" "client-test" {
 output "client_secret" {
   value = datahub_client.client-test.client_secret
   sensitive = true
+}
+
+resource "datahub_schedule" "test-sched"{
+  schedule = "* * * * * *"
+
+  bindings = [
+    {
+      job_id = datahub_job.example.job_id
+      environment = {
+        "TEST_1" = "UPDATED1",
+        "TEST_2" = "VALUE 3",
+      }
+    }
+  ]
+
 }
