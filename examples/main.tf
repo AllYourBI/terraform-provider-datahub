@@ -8,15 +8,15 @@ terraform {
 }
 
 provider "datahub" {
-  base_url      = "https://127.0.0.1:5000"
-  client_id     = "16179cd5-0483-48d2-bd7c-1d0035715728"
-  client_secret = "50YZbAU@EON1#2L!pmJ5"
+  base_url      = "https://staging.api.datahub.allyourbi.nl"
+  # base_url      = "https://localhost:5000"
+  
 }
 
 resource "datahub_job" "example" {
-  name  = "hallo3"
+  name  = "test-scheduling-job"
   type  = "full"
-  image = "aybcr.azurecr.io/aybi/dh-test-image"
+  image = "aybcr.azurecr.io/aybi/dh-echo:latest"
   
   environment = {
     "TEST_1" = "UPDATED1",
@@ -26,6 +26,12 @@ resource "datahub_job" "example" {
   secrets = {
     "SECRET_1" = "secret sauce",
   }
+
+  command = [
+    "echo",
+    "-command",
+    "echo", 
+  ]
 
   # oauth= {
   #   application = "exact_online"
@@ -38,13 +44,13 @@ resource "datahub_job" "example" {
 
 }
 
-data "datahub_oauth_url" "test" {
-  job_id = datahub_job.example.job_id
-}
+# data "datahub_oauth_url" "test" {
+#   job_id = datahub_job.example.job_id
+# }
 
-output "URL" {
-  value = data.datahub_oauth_url.test.redirect
-}
+# output "URL" {
+#   value = data.datahub_oauth_url.test.redirect
+# }
 
 # resource "datahub_init_run" "init-test" {
 #   name  = "initrun"
@@ -60,26 +66,32 @@ output "URL" {
 #   }
 # }
 
-resource "datahub_client" "client-test" {
-  customer_code = "ayby"
-  customer_name = "test-client1"
-}
+# resource "datahub_client" "client-test" {
+#   customer_code = "ayby"
+#   customer_name = "test-client1"
+# }
 
-output "client_secret" {
-  value = datahub_client.client-test.client_secret
-  sensitive = true
+# output "client_secret" {
+#   value = datahub_client.client-test.client_secret
+#   sensitive = true
+# }
+
+locals {
+  numbers = range(0)
 }
 
 resource "datahub_schedule" "test-sched"{
-  schedule = "* * * * * *"
+  for_each = toset([for i in local.numbers : tostring(i)])
+
+  schedule = "0 0 */${5 + each.key % 10} * * *"
 
   bindings = [
     {
       job_id = datahub_job.example.job_id
-      environment = {
-        "TEST_1" = "UPDATED1",
-        "TEST_2" = "VALUE 3",
-      }
+      # environment = {
+      #   "TEST_1" = "UPDATED1",
+      #   "TEST_2" = "VALUE 3",
+      # }
     }
   ]
 
