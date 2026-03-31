@@ -217,6 +217,7 @@ func (p *datahubProvider) Configure(ctx context.Context, req provider.ConfigureR
 func (p *datahubProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		NewOAuthURLDataSource,
+		NewRunnersDataSource,
 	}
 }
 
@@ -226,6 +227,8 @@ func (p *datahubProvider) Resources(_ context.Context) []func() resource.Resourc
 		NewJobResource,
 		NewInitRunResource,
 		NewClientResource,
-		NewScheduleResource, // Add the new schedule resource
+		NewScheduleResource,
+		NewRunnerResource,
+		NewRunnerBootstrapTokenResource,
 	}
 }

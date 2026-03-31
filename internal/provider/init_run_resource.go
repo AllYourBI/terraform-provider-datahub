@@ -205,7 +205,7 @@ func (r *initRunResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 
-	runResponse, err := r.client.Run.Create(ctx, job.ID, nil, nil, nil)
+	runResponse, err := r.client.Run.Create(ctx, job.ID, nil, nil, nil, nil, nil)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating run",

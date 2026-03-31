@@ -96,3 +96,27 @@ resource "datahub_schedule" "test-sched"{
   ]
 
 }
+
+
+
+# --- Runner Resources ---
+
+resource "datahub_runner" "example" {
+  name         = "my-custom-runner"
+  display_name = "My Custom Runner"
+}
+
+output "runner_id" {
+  value = datahub_runner.example.id
+}
+
+output "runner_bootstrap_token" {
+  value     = datahub_runner.example.bootstrap_token
+  sensitive = true
+}
+
+data "datahub_runners" "all" {}
+
+output "available_runners" {
+  value = [for r in data.datahub_runners.all.runners : r.name]
+}
