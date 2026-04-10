@@ -80,6 +80,10 @@ func (r *jobResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 				Optional:    true,
 				Description: "Command to be executed in the container as a list of arguments",
 			},
+			"runner": schema.StringAttribute{
+				Description: "Name of the runner to use for this job",
+				Optional:    true,
+			},
 			"oauth": schema.SingleNestedAttribute{
 				Description: "The OAuth config for logging into external service",
 				Optional:    true,
@@ -173,6 +177,11 @@ func (r *jobResource) Create(ctx context.Context, req resource.CreateRequest, re
 		OAuth:       oauth,
 	}
 
+	if !job.Runner.IsNull() && !job.Runner.IsUnknown() {
+		runner := job.Runner.ValueString()
+		jobRequest.Runner = &runner
+	}
+
 	jobResponse, err := r.client.Job.Create(ctx, jobRequest)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -225,6 +234,12 @@ func (r *jobResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 
 	state.Name = types.StringValue(job.Name)
 	state.Image = types.StringValue(job.Image)
+
+	if job.Runner != nil {
+		state.Runner = types.StringValue(*job.Runner)
+	} else {
+		state.Runner = types.StringNull()
+	}
 
 	if len(job.Environment) > 0 {
 		// To support jobs that create environment and secrets themselves we don't consider them changes
@@ -344,6 +359,16 @@ func (r *jobResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		updateReq.Command = &command
 	}
 
+	if !plan.Runner.Equal(state.Runner) {
+		if plan.Runner.IsNull() {
+			emptyRunner := ""
+			updateReq.Runner = &emptyRunner
+		} else {
+			runner := plan.Runner.ValueString()
+			updateReq.Runner = &runner
+		}
+	}
+
 	if (state.OAuth == nil && plan.OAuth != nil) || (plan.OAuth != nil && (!plan.OAuth.Application.Equal(state.OAuth.Application) ||
 		!plan.OAuth.Flow.Equal(state.OAuth.Flow) ||
 		!plan.OAuth.TokenURL.Equal(state.OAuth.TokenURL) ||
@@ -437,6 +462,7 @@ type jobResourceModel struct {
 	Environment types.Map              `tfsdk:"environment"`
 	Secrets     types.Map              `tfsdk:"secrets"`
 	Command     types.List             `tfsdk:"command"`
+	Runner      types.String           `tfsdk:"runner"`
 	OAuth       *jobResourceOauthModel `tfsdk:"oauth"`
 }
 
